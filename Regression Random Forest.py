@@ -96,7 +96,7 @@ def processSubtitles(subs, effectiveRuntime):
 def main():
 
     #user macros
-    windowedVOCs = False
+    windowedVOCs = True
     lengthOfWindow = 10
 
     #overall feature and labels df
@@ -180,6 +180,7 @@ def main():
     #second train test split is to randomly remove screenings to test them seperately
 
     #regression model
+    print('Using Window ' + str(windowedVOCs))
     print('Train Model')
     regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
     if not(windowedVOCs):
