@@ -126,11 +126,13 @@ def dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercen
                 originalVOCFrames.append(vocWindow)
                 vocList = gradientAlignment(vocWindow,gradThreshold, effectiveRuntime,vocTime,movieMatched)
                 timeList.append(vocTime)
-                matchedMovieList.append(movieMatched)
-                vocScreenings = vocScreenings + vocList
+                if len(vocList) > 0:
+                    matchedMovieList.append(movieMatched)
+                    vocScreenings = vocScreenings + vocList
                 
     
     return vocScreenings, matchedMovieList, timeList, originalVOCFrames
+
 
 def normalisation(vocScreenings):
     normalisedVOCList = list()
@@ -469,8 +471,7 @@ def main():
     normalisedScreenings =  normalisation(adjustedScreenings)
     
     #save the normalised vocs
-    #compile the matchedMovie, timeList and the screenings into a dictionary then save them
-    normalisedScreeningsDict = {'screenings':normalisedScreenings, 'matchedMovies':matchedMovieList, 'timeList':timeList}
+    normalisedScreeningsDict = {'screenings':normalisedScreenings, 'matchedMovies':matchedMovieList}
     pickle.dump(normalisedScreeningsDict, open( "normalisedScreeningsDict.p", "wb" ) ) 
 
     #applying windowing
@@ -486,8 +487,9 @@ def main():
             windowList = windowing(screening, vocTimeList, cinestar2015Co2Df)
         windowedNormalisedScreenings.append(windowList)
     
+    #save the windowed normalised screenings
     normalisedWindowedScreeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList, 'timeList':timeList}
     pickle.dump(normalisedWindowedScreeningsDict, open( "normalisedWindowedScreeningsDict.p", "wb" ) ) 
-
+    
 
 main()

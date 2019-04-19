@@ -89,58 +89,46 @@ def main():
     windowedVOCs = False
     lengthOfWindow = 10
 
+    #overall feature and labels df
+    featureDf = pd.DataFrame([]) #film feature dataframe
+    labelDf = pd.DataFrame([]) #voc dataframe
+    
     #import vocs
-    vocDict = pickle.load(open("Pickle Objects/normalisedVOC.p", "rb" )) #dictionary object that contains the vocs
+    vocDict = pickle.load(open("Pickle Objects/normalisedScreeningsDict.p", "rb" ))
+    vocDictWindow = pickle.load(open("Pickle Objects/normalisedWindowedScreeningsDict.p", "rb" ))
 
     #import movie runtimes
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
     movieRuntimeDf = pd.read_csv(movieRuntimesPath, usecols = ['movie', 'runtime (mins)', 'effective runtime'])
     movieList = list(movieRuntimeDf['movie'])
 
-    #overall feature and labels df
-    featureDf = pd.DataFrame([]) #film feature dataframe
-    labelDf = pd.DataFrame([]) #voc dataframe
-  
+    movieFeatureDict = dict() #dict contains the movie film features with the keys being the movies
     #import pickle objects for movies and then assemble the dataframes  
     for movie in movieList:
+        try:
+            #load pickle feauture objects
+            featurePath = 'Pickle Objects/Audio Feature Pickle Objects/' + movie + '.p'
+            audio = pickle.load(open(featurePath, "rb" )) 
+            featurePath = 'Pickle Objects/Colour Pickle Objects/' + movie + '.p'
+            colour = pickle.load(open(featurePath, "rb" )) 
+            featurePath = 'Pickle Objects/Shade Pickle Objects/' + movie + '.p'
+            shade = pickle.load(open(featurePath, "rb" )) 
+            featurePath = 'Pickle Objects/Subtitle Sentiment Pickle Objects/' + movie + '.p'
+            sentiment = pickle.load(open(featurePath, "rb" )) 
 
-        #load pickle feauture objects
-        featurePath = 'Pickle Objects/Audio Feature Pickle Objects/' + movie + '.p'
-        audio = pickle.load(open(featurePath, "rb" )) 
-        featurePath = 'Pickle Objects/Colour Pickle Objects/' + movie + '.p'
-        colour = pickle.load(open(featurePath, "rb" )) 
-        featurePath = 'Pickle Objects/Shade Pickle Objects/' + movie + '.p'
-        shade = pickle.load(open(featurePath, "rb" )) 
-        featurePath = 'Pickle Objects/Subtitle Sentiment Pickle Objects/' + movie + '.p'
-        sentiment = pickle.load(open(featurePath, "rb" )) 
+            runtime = movieRuntimeDf.loc[movieList.index(movie)]['effective runtime']
+            colourDf = processVisuals(colour, runtime, True)
+            shadeDf = processVisuals(shade, runtime, False)
+            audioDf = processAudio(runtime, audio)
+            sentimentDf = processSubtitles(sentiment)
 
-        runtime = movieRuntimeDf.loc[movieList.index(movie)]['effective runtime']
-        colourDf = processVisuals(colour, runtime, True)
-        shadeDf = processVisuals(shade, runtime, False)
-        audioDf = processAudio(runtime, audio)
-        sentimentDf = processSubtitles(sentiment)
+            inputDf = pd.concat([colourDf,shadeDf,audioDf,sentimentDf], axis = 1)
+            movieFeatureDict[movie] = inputDf
+        except FileNotFoundError:
+            print(movie)
+    
+     
 
-        inputDf = pd.concat([colourDf,shadeDf,audioDf,sentimentDf], axis = 1)
-
-        #output df
-        screenings = vocDict[movie]
-        #create overall input and output df
-        for i in range(0, len(screenings)):
-            featureDf = pd.concat([featureDf,inputDf])
-            if not(windowedVOCs):
-                screening = screenings[i]['CO2']
-                labelDf = pd.concat([labelDf, screening['CO2']])
-            else:
-                #using windowed VOCs
-                header = ['VOC' + str(x) for x in range(1,lengthOfWindow+1)]
-                vocWindowDf = pd.DataFrame(columns = header)
-                for index in range(0, len(screening)):
-                    vocWindow = screening[index]['CO2'].values
-                    vocWindowDf.loc[index] = vocWindow 
-                labelDf = pd.concat([labelDf, vocWindowDf])
-
-    #change header label on output header
-    labelDf.columns = ['CO2']
 
     #train test split
     #create training and test datasets
