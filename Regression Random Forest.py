@@ -46,7 +46,7 @@ def processVisuals(movieVisualData, runtime, isColour):
             
     return visualDf
 
-def processAudio(runtime, audioFeatures):
+def processAudio(runtime, audio):
     audioFeatures = list(audio.keys())
 
     audioDf = pd.DataFrame(columns=[])        
@@ -70,15 +70,25 @@ def processAudio(runtime, audioFeatures):
     
     return audioDf
 
-def processSubtitles(subs):
-    header = ['sentiment', 'sentiment value']
+def processSubtitles(subs, effectiveRuntime):
+    
+    header = ['sentiment value']
     subSentimentDf = pd.DataFrame(columns=header)
     for sentimentIndex in range(0, len(subs)):
         sentiment = subs[sentimentIndex]
         if len(sentiment) != 0:
-            subSentimentDf.loc[sentimentIndex] = [sentiment['sentiment'], sentiment['sentimentValue']]
+            if sentiment['sentimentValue'] == np.NaN:
+                print('YES')
+            else:         
+                subSentimentDf.loc[sentimentIndex] = [sentiment['sentimentValue']]
         else:
-            subSentimentDf.loc[sentimentIndex] = [np.NaN, np.NaN]
+            subSentimentDf.loc[sentimentIndex] = [-1] #indicates no dialog occurred during the scene
+        
+        #enforce no dialog until the credit scene if there is in fact no dialog
+        if len(subSentimentDf) != effectiveRuntime:
+            #no dialog at the end thus need to fill the rest with -1
+            for index in range(0, effectiveRuntime-len(subSentimentDf)+1):
+                 subSentimentDf.loc[index] = [-1]
     
     return subSentimentDf
 
@@ -120,37 +130,63 @@ def main():
             colourDf = processVisuals(colour, runtime, True)
             shadeDf = processVisuals(shade, runtime, False)
             audioDf = processAudio(runtime, audio)
-            sentimentDf = processSubtitles(sentiment)
+            sentimentDf = processSubtitles(sentiment,runtime)
 
             inputDf = pd.concat([colourDf,shadeDf,audioDf,sentimentDf], axis = 1)
             movieFeatureDict[movie] = inputDf
         except FileNotFoundError:
-            print(movie)
-    
+            pass
+            
      
+    #remove all screenings of im off then and help i shrunk the teacher as at the current time do not have the movies
+    screenings = list()
+    matchedMovies = list()
+    for movieIndex in range(0, len(vocDict['matchedMovies'])):
+        movie = vocDict['matchedMovies'][movieIndex]
+        if movie != "Help, I Shrunk My Teacher" and movie != "I'm Off Then":
+            #add good screenings to a modified screening list
+            matchedMovies.append(movie)
+            screenings.append(vocDict['screenings'][movieIndex])    
+    #replace
+    vocDict = dict()
+    vocDict['matchedMovies'] = matchedMovies
+    vocDict['screenings'] = screenings
 
+    #create label and feature df
+    for i in range(0, len(vocDict['screenings'])): 
+        matchedMovie = vocDict['matchedMovies'][i]
+        featureDf = pd.concat([featureDf, movieFeatureDict[matchedMovie]])
+        if not(windowedVOCs):
+            screening = vocDict['screenings'][i]
+            labelDf = pd.concat([labelDf, screening['CO2']])
+        else:
+            screening = vocDictWindow['screenings'][i]
+            #using windowed VOCs
+            header = ['VOC' + str(x) for x in range(1,lengthOfWindow+1)]
+            vocWindowDf = pd.DataFrame(columns = header)
+            for index in range(0, len(screening)):
+                vocWindow = screening[index]['CO2'].values
+                vocWindowDf.loc[index] = vocWindow 
+            labelDf = pd.concat([labelDf, vocWindowDf])
 
+    #relabel column title 
+    if not(windowedVOCs):
+        labelDf.columns = ['VOC']
+     
     #train test split
     #create training and test datasets
+    print('Train Test Split')
     featuresTrain, featuresTest, labelsTrain, labelsTest = train_test_split(featureDf, labelDf, test_size= 0.20) #80 20 train test split
     #second train test split is to randomly remove screenings to test them seperately
 
     #regression model
+    print('Train Model')
     regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
     regressor.fit(featuresTrain, labelsTrain)
+    print('Test Model')
     labelsPred = regressor.predict(featuresTest)
 
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(labelsTest, labelsPred))) 
     
-
-
-
-
-
-
-
-
-
-
 
 main()
