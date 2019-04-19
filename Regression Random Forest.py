@@ -182,7 +182,11 @@ def main():
     #regression model
     print('Train Model')
     regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
-    regressor.fit(featuresTrain, labelsTrain)
+    if not(windowedVOCs):
+        regressor.fit(featuresTrain, labelsTrain.values.ravel())
+    else:
+        regressor.fit(featuresTrain, labelsTrain)
+        
     print('Test Model')
     labelsPred = regressor.predict(featuresTest)
 
