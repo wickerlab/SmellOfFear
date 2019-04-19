@@ -77,6 +77,7 @@ def divideSubsIntoSegments(lines, runtime):
     return subtitleIntervals 
 
 #remove any uncessary lines and unecessary characters within dialog lines
+#remove any uncessary lines and unecessary characters within dialog lines
 def editSubtitleData(subtitleIntervals):
     
     parsedSubtitleIntervals = list()
@@ -101,13 +102,12 @@ def editSubtitleData(subtitleIntervals):
                         if not(htmlFlag) and char != '>' and char != '\'':
                             parsedLine = parsedLine + char
                 if len(parsedLine) != 0:
-                    modifiedSegment = modifiedSegment + parsedLine    
-            parsedSubtitleIntervals.append(modifiedSegment)
+                    modifiedSegment = modifiedSegment + ' ' + parsedLine      
+            parsedSubtitleIntervals.append(modifiedSegment.strip())
         else:
             parsedSubtitleIntervals.append(subtitleSegment)
         
     return parsedSubtitleIntervals
-
 
 
 
@@ -124,14 +124,13 @@ def main():
             subPath = 'Features//Subtitle SRT//' + movie + '.srt'
             subs = open(subPath, mode = 'r', encoding='utf-8-sig')
             subs = subs.readlines() #contains each line within the document
+            movieIndex = movieList.index(movie)
+            segmentList = divideSubsIntoSegments(subs, movieRuntimeDf['effective runtime'][movieIndex])
+            subtitleList = editSubtitleData(segmentList)
         else:
             #because buddy was in german it had to be translated first
             buddySubtitlePath = 'Pickle Objects/buddyEngTranslated.p'
-            subs = pickle.load(open(buddySubtitlePath, "rb" ))
-    
-        movieIndex = movieList.index(movie)
-        segmentList = divideSubsIntoSegments(subs, movieRuntimeDf['effective runtime'][movieIndex])
-        subtitleList = editSubtitleData(segmentList)
+            subtitleList = pickle.load(open(buddySubtitlePath, "rb" ))
 
 
         #For movies with english subtitle scripts
