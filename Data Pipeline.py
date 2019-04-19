@@ -123,15 +123,16 @@ def dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercen
                 effectiveRuntime = movieRuntimeDf.loc[movieIndex]['effective runtime']
                 runtime = movieRuntimeDf.loc[movieIndex]['runtime (mins)']
                 vocWindow = preliminaryAlignment(runtime, vocTime, vocTimeList, preliminaryAlignmentTolerance, co2Df)
-                originalVOCFrames.append(vocWindow)
                 vocList = gradientAlignment(vocWindow,gradThreshold, effectiveRuntime,vocTime,movieMatched)
-                timeList.append(vocTime)
                 if len(vocList) > 0:
+                    originalVOCFrames.append(vocWindow)
+                    timeList.append(vocTime)
                     matchedMovieList.append(movieMatched)
                     vocScreenings = vocScreenings + vocList
                 
     
     return vocScreenings, matchedMovieList, timeList, originalVOCFrames
+
 
 
 def normalisation(vocScreenings):
@@ -364,7 +365,6 @@ def errorAdjustment(vocList, timeList, matchedMovieList,originalVOCFrames,movieR
             adjustedVOCList[errorIndex] = vocWindow
 
     return adjustedVOCList
-                
 
             
 
@@ -488,7 +488,7 @@ def main():
         windowedNormalisedScreenings.append(windowList)
     
     #save the windowed normalised screenings
-    normalisedWindowedScreeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList, 'timeList':timeList}
+    normalisedWindowedScreeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList}
     pickle.dump(normalisedWindowedScreeningsDict, open( "normalisedWindowedScreeningsDict.p", "wb" ) ) 
     
 
