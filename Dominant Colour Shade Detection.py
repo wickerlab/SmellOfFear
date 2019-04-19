@@ -94,8 +94,8 @@ def main():
         dominantShadeList = dominantColourOrShadeEvaluation(movieGrayFrameList)
         
         print(movie + ' save pickle object')
-        dominantColourFilename = 'Pickle Objects//' + movie + 'DominantColour.p'
-        dominantShadeFilename = 'Pickle Objects//' + movie + 'DominantShade.p' 
+        dominantColourFilename = 'Pickle Objects//Colour Pickle Objects//' + movie + '.p'
+        dominantShadeFilename = 'Pickle Objects//Shade Pickle Objects//' + movie + '.p' 
         pickle.dump(dominantColourList, open(dominantColourFilename, 'wb'))
         pickle.dump(dominantShadeList, open(dominantShadeFilename, 'wb'))
     
