@@ -15,10 +15,11 @@ def windowing(screening, vocTimeList, co2Df):
     startTimeIndex = vocTimeList.index(startTime) - 5
     endTimeIndex = startTimeIndex + len(screening) + 9
     windowDf = co2Df.loc[startTimeIndex:endTimeIndex][:] #adjust the voc screening 
+    windowDf = normalisation([windowDf])
     #create a dataframe of the windows
     windowedList = list()
     for i in range(0, len(screening)):
-        window = windowDf.loc[startTimeIndex:startTimeIndex+9][:]
+        window = windowDf[0].loc[startTimeIndex:startTimeIndex+9][:]
         windowedList.append(window)
         startTimeIndex = startTimeIndex + 1
     return windowedList
