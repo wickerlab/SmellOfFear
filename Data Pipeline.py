@@ -384,6 +384,8 @@ def main():
     preliminaryAlignmentTolerance = 50
     filledPercentageConstraint = 10 #movie must have atleast 10% filled to get a decent reading
     voc = 'CO2'
+    isWindowing = False
+    isDelta = True
 
     #read in the various csvs
     #2013 Dataset
