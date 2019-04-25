@@ -125,8 +125,8 @@ def main():
     labelDf = pd.DataFrame([]) #voc dataframe
 
     #user macros
-    deltaVOCs = True
-    windowedVOCs = False
+    deltaVOCs = False
+    windowedVOCs = True
     lengthOfWindow = 10
     
     #import vocs
@@ -138,6 +138,7 @@ def main():
         vocDict = pickle.load(open("Pickle Objects/deltaScreeningsDict.p", "rb" ))
     else:
         print('WRONG COMBINATION OF MACROS')
+        return
 
     #import movie runtimes
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
@@ -189,7 +190,7 @@ def main():
             screening = vocDict['screenings'][i]
             labelDf = pd.concat([labelDf, screening['CO2']])
         else:
-            screening = vocDictWindow['screenings'][i]
+            screening = vocDict['screenings'][i]
             #using windowedVOCsed VOCs
             header = ['VOC' + str(x) for x in range(1,lengthOfWindow+1)]
             vocWindowDf = pd.DataFrame(columns = header)
