@@ -125,8 +125,8 @@ def main():
     labelDf = pd.DataFrame([]) #voc dataframe
 
     #user macros
-    deltaVOCs = False
-    windowedVOCs = True
+    deltaVOCs = True
+    windowedVOCs = False
     lengthOfWindow = 10
     
     #import vocs
@@ -169,6 +169,8 @@ def main():
             movieFeatureDict[movie] = inputDf
         except FileNotFoundError:
             print(movie)
+            
+    print('Finished Loading Film Features')
     
     #remove all screenings of im off then and help i shrunk the teacher as at the current time do not have the movies
     vocDict = removeMovies(vocDict)
@@ -203,16 +205,18 @@ def main():
     if not(windowedVOCs):
         labelDf.columns = ['VOC']
 
-
+    print('Finished Creating Feature & Label Dataframes')
      
     #train test split
     #create training and test datasets
     print('Train Test Split')
     featuresTrain, featuresTest, labelsTrain, labelsTest = train_test_split(featureDf, labelDf, test_size= 0.20) #80 20 train test split
-    #second train test split is to randomly remove screenings to test them seperately
+   
 
     #regression model
     print('Using Window ' + str(windowedVOCs))
+    print('Using Delta ' + str(deltaVOCs))
+    
     print('Train Model')
     regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
     if not(windowedVOCs):
@@ -222,8 +226,14 @@ def main():
         
     print('Test Model')
     labelsPred = regressor.predict(featuresTest)
-
-    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(labelsTest, labelsPred))) 
+    
+    RMSE = np.sqrt(metrics.mean_squared_error(labelsTest, labelsPred))
+    MAE = metrics.mean_absolute_error(labelsTest, labelsPred)
+    R2 = metrics.r2_score(labelsTest, labelsPred)
+                   
+    print('Root Mean Squared Error: ', RMSE) 
+    print('Absolute Mean Error: ', MAE)
+    print('R Squared: ' R2)
     
 
 main()
