@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn import metrics
 import copy
+from sklearn.externals import joblib
 
 #frames were collected at 1/3fps so for a 30 second period there are 10 frames. This function just groups the 
 #dominant frame colour or shade components to within their respective intervals
@@ -125,7 +126,7 @@ def main():
     labelDf = pd.DataFrame([]) #voc dataframe
 
     #user macros
-    deltaVOCs = True
+    deltaVOCs = False
     windowedVOCs = False
     lengthOfWindow = 10
     
@@ -233,7 +234,10 @@ def main():
                    
     print('Root Mean Squared Error: ', RMSE) 
     print('Absolute Mean Error: ', MAE)
-    print('R Squared: ' R2)
+    print('R Squared: ', R2)
+    
+    #Save the model
+    joblib.dump(regressor, 'NoWindowModel.pkl')
     
 
 main()
