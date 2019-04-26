@@ -92,20 +92,53 @@ def processSubtitles(subs, effectiveRuntime):
     
     return subSentimentDf
 
+def removeMovies(vocDict):
+
+    #remove all screenings of im off then and help i shrunk the teacher as at the current time do not have the movies
+    screenings = list()
+    matchedMovies = list()
+    for movieIndex in range(0, len(vocDict['matchedMovies'])):
+        movie = vocDict['matchedMovies'][movieIndex]
+        if movie != "Help, I Shrunk My Teacher" and movie != "I'm Off Then":
+            #add good screenings to a modified screening list
+            matchedMovies.append(movie)
+            screenings.append(vocDict['screenings'][movieIndex])
+    #replace
+    vocDict = dict()
+    vocDict['matchedMovies'] = matchedMovies
+    vocDict['screenings'] = screenings
+    
+    return vocDict
+
+def calculateDeltaFilmFeatures(movieFeatureDf, featureHeader):
+    deltaFeatureDf = pd.DataFrame(columns=featureHeader)
+    for rowIndex in range(0,movieFeatureDf.shape[0]-1):
+        tempDf = pd.concat([movieFeatureDf.loc[rowIndex],movieFeatureDf.loc[rowIndex+1]]).values
+        deltaFeatureDf.loc[rowIndex]= tempDf
+    return deltaFeatureDf
+
 
 def main():
-
-    #user macros
-    windowedVOCs = True
-    lengthOfWindow = 10
 
     #overall feature and labels df
     featureDf = pd.DataFrame([]) #film feature dataframe
     labelDf = pd.DataFrame([]) #voc dataframe
+
+    #user macros
+    deltaVOCs = True
+    windowedVOCs = False
+    lengthOfWindow = 10
     
     #import vocs
-    vocDict = pickle.load(open("Pickle Objects/normalisedScreeningsDict.p", "rb" ))
-    vocDictWindow = pickle.load(open("Pickle Objects/normalisedWindowedScreeningsDict.p", "rb" ))
+    if not(deltaVOCs) and not(windowedVOCs):
+        vocDict = pickle.load(open("Pickle Objects/normalisedScreeningsDict.p", "rb" ))
+    elif not(deltaVOCs) and windowedVOCs:
+        vocDict = pickle.load(open("Pickle Objects/normalisedWindowedScreeningsDict.p", "rb" ))
+    elif deltaVOCs and not(windowedVOCs):
+        vocDict = pickle.load(open("Pickle Objects/deltaScreeningsDict.p", "rb" ))
+    else:
+        print('WRONG COMBINATION OF MACROS')
+        return
 
     #import movie runtimes
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
@@ -135,33 +168,32 @@ def main():
             inputDf = pd.concat([colourDf,shadeDf,audioDf,sentimentDf], axis = 1)
             movieFeatureDict[movie] = inputDf
         except FileNotFoundError:
-            pass
+            print(movie)
             
-     
+    print('Finished Loading Film Features')
+    
     #remove all screenings of im off then and help i shrunk the teacher as at the current time do not have the movies
-    screenings = list()
-    matchedMovies = list()
-    for movieIndex in range(0, len(vocDict['matchedMovies'])):
-        movie = vocDict['matchedMovies'][movieIndex]
-        if movie != "Help, I Shrunk My Teacher" and movie != "I'm Off Then":
-            #add good screenings to a modified screening list
-            matchedMovies.append(movie)
-            screenings.append(vocDict['screenings'][movieIndex])    
-    #replace
-    vocDict = dict()
-    vocDict['matchedMovies'] = matchedMovies
-    vocDict['screenings'] = screenings
-
+    vocDict = removeMovies(vocDict)
+    
     #create label and feature df
+
     for i in range(0, len(vocDict['screenings'])): 
+
         matchedMovie = vocDict['matchedMovies'][i]
-        featureDf = pd.concat([featureDf, movieFeatureDict[matchedMovie]])
+
+        if not(deltaVOCs):
+            featureDf = pd.concat([featureDf, movieFeatureDict[matchedMovie]])
+        else:
+            featureHeader = list(movieFeatureDict[matchedMovie].columns) + list(movieFeatureDict[matchedMovie].columns)
+            deltaDf = calculateDeltaFilmFeatures(movieFeatureDict[matchedMovie],featureHeader)
+            featureDf = pd.concat([featureDf, deltaDf])
+
         if not(windowedVOCs):
             screening = vocDict['screenings'][i]
             labelDf = pd.concat([labelDf, screening['CO2']])
         else:
-            screening = vocDictWindow['screenings'][i]
-            #using windowed VOCs
+            screening = vocDict['screenings'][i]
+            #using windowedVOCsed VOCs
             header = ['VOC' + str(x) for x in range(1,lengthOfWindow+1)]
             vocWindowDf = pd.DataFrame(columns = header)
             for index in range(0, len(screening)):
@@ -172,15 +204,19 @@ def main():
     #relabel column title 
     if not(windowedVOCs):
         labelDf.columns = ['VOC']
+
+    print('Finished Creating Feature & Label Dataframes')
      
     #train test split
     #create training and test datasets
     print('Train Test Split')
     featuresTrain, featuresTest, labelsTrain, labelsTest = train_test_split(featureDf, labelDf, test_size= 0.20) #80 20 train test split
-    #second train test split is to randomly remove screenings to test them seperately
+   
 
     #regression model
     print('Using Window ' + str(windowedVOCs))
+    print('Using Delta ' + str(deltaVOCs))
+    
     print('Train Model')
     regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
     if not(windowedVOCs):
@@ -190,8 +226,14 @@ def main():
         
     print('Test Model')
     labelsPred = regressor.predict(featuresTest)
-
-    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(labelsTest, labelsPred))) 
+    
+    RMSE = np.sqrt(metrics.mean_squared_error(labelsTest, labelsPred))
+    MAE = metrics.mean_absolute_error(labelsTest, labelsPred)
+    R2 = metrics.r2_score(labelsTest, labelsPred)
+                   
+    print('Root Mean Squared Error: ', RMSE) 
+    print('Absolute Mean Error: ', MAE)
+    print('R Squared: ' R2)
     
 
 main()

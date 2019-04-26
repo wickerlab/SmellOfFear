@@ -6,7 +6,16 @@ import datetime
 import pickle
 import random
 import copy
-        
+
+def deltaVOCCalculation(normalisedScreenings, voc):
+    deltaNormalisedScreenings = list()
+    for screening in normalisedScreenings:
+        deltaDf = pd.DataFrame(columns=[list(screening.columns)[1]])
+        for rowIndex in range(0, len(screening)-1):
+            delta = screening[voc].values[rowIndex+1]-screening[voc].values[rowIndex]
+            deltaDf.loc[rowIndex] = delta
+        deltaNormalisedScreenings.append(deltaDf)
+    return deltaNormalisedScreenings        
 
 def windowing(screening, vocTimeList, co2Df):
     
@@ -374,11 +383,14 @@ def main():
     gradThreshold = -0.045
     preliminaryAlignmentTolerance = 50
     filledPercentageConstraint = 10 #movie must have atleast 10% filled to get a decent reading
+    voc = 'CO2'
+    isWindowing = False
+    isDelta = True
 
     #read in the various csvs
     #2013 Dataset
     vocPath = 'Numerical Data/CO2data.csv'
-    co2Df = pd.read_csv(vocPath, usecols = ['Time','CO2'], header = 0, nrows = 74208)
+    co2Df = pd.read_csv(vocPath, usecols = ['Time',voc], header = 0, nrows = 74208)
     movieScreeningsPath = 'Numerical Data/screening_times.csv'
     movingScreeningsDf = pd.read_csv(movieScreeningsPath, usecols = ['scheduled','movie','filled %'])
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
@@ -391,7 +403,7 @@ def main():
     helpIShrunkTheTeacherPath = 'Numerical Data/Help, I Shrunk My Teacher.csv'
     helpIShrunkTheTeacherScreeningDf = pd.read_csv(helpIShrunkTheTeacherPath)
     vocPath = 'Numerical Data/final_data_ppb.csv'
-    cinestar2015Co2Df = pd.read_csv(vocPath, usecols = ['Time', 'CO2'])
+    cinestar2015Co2Df = pd.read_csv(vocPath, usecols = ['Time', voc])
 
     #Standardize times within the VOC dataset
     #VOC timings with datetime object
@@ -471,25 +483,33 @@ def main():
     normalisedScreenings =  normalisation(adjustedScreenings)
     
     #save the normalised vocs
-    normalisedScreeningsDict = {'screenings':normalisedScreenings, 'matchedMovies':matchedMovieList}
-    pickle.dump(normalisedScreeningsDict, open( "normalisedScreeningsDict.p", "wb" ) ) 
+    #compile the matchedMovie, timeList and the screenings into a dictionary then save them
+    if not(isWindowing):
+        normalisedScreeningsDict = {'screenings':normalisedScreenings, 'matchedMovies':matchedMovieList}
+        pickle.dump(normalisedScreeningsDict, open( "normalisedScreeningsDict.p", "wb" ) ) 
 
     #applying windowing
-    windowedNormalisedScreenings = list()
-    for screening in normalisedScreenings:
-        #find year of movie and then to figure out what VOC dataset to give it
-        year = list(screening['Time'])[0][6:10]
-        if year == '2013' or year == '2014':
-            vocTimeList =list(co2Df['Time'])
-            windowList = windowing(screening, vocTimeList, co2Df)
-        elif year == '2015' or year == '2016':
-            vocTimeList = list(cinestar2015Co2Df['Time'])
-            windowList = windowing(screening, vocTimeList, cinestar2015Co2Df)
-        windowedNormalisedScreenings.append(windowList)
+    if isWindowing:
+        windowedNormalisedScreenings = list()
+        for screening in normalisedScreenings:
+            #find year of movie and then to figure out what VOC dataset to give it
+            year = list(screening['Time'])[0][6:10]
+            if year == '2013' or year == '2014':
+                vocTimeList =list(co2Df['Time'])
+                windowList = windowing(screening, vocTimeList, co2Df)
+            elif year == '2015' or year == '2016':
+                vocTimeList = list(cinestar2015Co2Df['Time'])
+                windowList = windowing(screening, vocTimeList, cinestar2015Co2Df)
+            windowedNormalisedScreenings.append(windowList)
+
+        normalisedWindowedScreeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList, 'timeList':timeList}
+        pickle.dump(normalisedWindowedScreeningsDict, open( "normalisedWindowedScreeningsDict.p", "wb" ) ) 
     
-    #save the windowed normalised screenings
-    normalisedWindowedScreeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList}
-    pickle.dump(normalisedWindowedScreeningsDict, open( "normalisedWindowedScreeningsDict.p", "wb" ) ) 
-    
+    #calculate delta voc dataset
+    if isDelta:
+        deltaScreenings = deltaVOCCalculation(normalisedScreenings, voc)
+        deltaScreeningsDict = {'screenings':deltaScreenings, 'matchedMovies':matchedMovieList,'timeList':timeList}
+        pickle.dump(deltaScreeningsDict, open( "deltaScreeningsDict.p", "wb" ) )
+
 
 main()
