@@ -104,6 +104,6 @@ def main():
     #create results Df
     resultsDf = pd.DataFrame(resultsList, columns=resultsHeader)
     resultsDf.to_excel("results.xlsx") 
-    resultsDf.to_csv('results.csv, sep=',', encoding='utf-8')   
+    resultsDf.to_csv('results.csv', sep=',', encoding='utf-8')   
 
 main()
