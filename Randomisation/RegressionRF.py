@@ -8,6 +8,8 @@ from sklearn import metrics
 import copy
 from sklearn.externals import joblib
 
+import DataPipeline
+
 #frames were collected at 1/3fps so for a 30 second period there are 10 frames. This function just groups the 
 #dominant frame colour or shade components to within their respective intervals
 def grouping(visualList):
@@ -119,27 +121,14 @@ def calculateDeltaFilmFeatures(movieFeatureDf, featureHeader):
     return deltaFeatureDf
 
 
-def main():
+def RegressionModel(vocDict, modelSave):
 
     #overall feature and labels df
     featureDf = pd.DataFrame([]) #film feature dataframe
     labelDf = pd.DataFrame([]) #voc dataframe
 
     #user macros
-    deltaVOCs = False
-    windowedVOCs = False
     lengthOfWindow = 10
-    
-    #import vocs
-    if not(deltaVOCs) and not(windowedVOCs):
-        vocDict = pickle.load(open("Pickle Objects/normalisedScreeningsDict.p", "rb" ))
-    elif not(deltaVOCs) and windowedVOCs:
-        vocDict = pickle.load(open("Pickle Objects/normalisedWindowedScreeningsDict.p", "rb" ))
-    elif deltaVOCs and not(windowedVOCs):
-        vocDict = pickle.load(open("Pickle Objects/deltaScreeningsDict.p", "rb" ))
-    else:
-        print('WRONG COMBINATION OF MACROS')
-        return
 
     #import movie runtimes
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
@@ -215,8 +204,6 @@ def main():
    
 
     #regression model
-    print('Using Window ' + str(windowedVOCs))
-    print('Using Delta ' + str(deltaVOCs))
     
     print('Train Model')
     regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
@@ -237,7 +224,8 @@ def main():
     print('R Squared: ', R2)
     
     #Save the model
-    joblib.dump(regressor, 'NoWindowModel.pkl')
+    if modelSave:
+        joblib.dump(regressor, 'NoWindowModel.pkl')
+        
+    return RMSE,MAE,R2
     
-
-main()

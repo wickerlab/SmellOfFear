@@ -17,13 +17,13 @@ def deltaVOCCalculation(normalisedScreenings, voc):
         deltaNormalisedScreenings.append(deltaDf)
     return deltaNormalisedScreenings        
 
-def windowing(screening, vocTimeList, co2Df):
+def windowing(screening, vocTimeList, voc2013Df):
     
     #add interval to start and end of window
     startTime = list(screening['Time'])[0]
     startTimeIndex = vocTimeList.index(startTime) - 5
     endTimeIndex = startTimeIndex + len(screening) + 9
-    windowDf = co2Df.loc[startTimeIndex:endTimeIndex][:] #adjust the voc screening 
+    windowDf = voc2013Df.loc[startTimeIndex:endTimeIndex][:] #adjust the voc screening 
     windowDf = normalisation([windowDf])
     #create a dataframe of the windows
     windowedList = list()
@@ -33,11 +33,11 @@ def windowing(screening, vocTimeList, co2Df):
         startTimeIndex = startTimeIndex + 1
     return windowedList
 
-def preliminaryAlignment(runtime, vocTime, vocTimeList,preliminaryAlignmentTolerance,co2Df):
+def preliminaryAlignment(runtime, vocTime, vocTimeList,preliminaryAlignmentTolerance,voc2013Df):
     effectiveRuntime = (runtime + preliminaryAlignmentTolerance) * 2 #tolerance added is 15mins and then multiplied by 2 to get the number of 30s intervals
     vocIndex = vocTimeList.index(vocTime)
     vocEndIndex = vocIndex + effectiveRuntime
-    vocWindow = co2Df.loc[vocIndex:vocEndIndex][:]
+    vocWindow = voc2013Df.loc[vocIndex:vocEndIndex][:]
     return vocWindow
 
 def calculateDeltaBetweenPeaks(vocWindow):
@@ -112,7 +112,7 @@ def gradientAlignment(vocWindow,gradThreshold, effectiveRuntime,vocTime,movieMat
 
     return vocList
 
-def dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, co2Df, preliminaryAlignmentTolerance, gradThreshold, filledPercentageConstraint,movieRuntimeDf, originalVOCFrames):
+def dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, voc2013Df, preliminaryAlignmentTolerance, gradThreshold, filledPercentageConstraint,movieRuntimeDf, originalVOCFrames):
    
     for vocTime in vocTimeList: 
     #match timing with movie scheduled timing 
@@ -131,7 +131,7 @@ def dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercen
                     
                 effectiveRuntime = movieRuntimeDf.loc[movieIndex]['effective runtime']
                 runtime = movieRuntimeDf.loc[movieIndex]['runtime (mins)']
-                vocWindow = preliminaryAlignment(runtime, vocTime, vocTimeList, preliminaryAlignmentTolerance, co2Df)
+                vocWindow = preliminaryAlignment(runtime, vocTime, vocTimeList, preliminaryAlignmentTolerance, voc2013Df)
                 vocList = gradientAlignment(vocWindow,gradThreshold, effectiveRuntime,vocTime,movieMatched)
                 if len(vocList) > 0:
                     originalVOCFrames.append(vocWindow)
@@ -378,19 +378,16 @@ def errorAdjustment(vocList, timeList, matchedMovieList,originalVOCFrames,movieR
             
 
 
-def main():
+def dataPipeline(voc,isWindowing,isDelta,save):
     #user macros
     gradThreshold = -0.045
     preliminaryAlignmentTolerance = 50
     filledPercentageConstraint = 10 #movie must have atleast 10% filled to get a decent reading
-    voc = 'CO2'
-    isWindowing = False
-    isDelta = True
 
     #read in the various csvs
     #2013 Dataset
-    vocPath = 'Numerical Data/CO2data.csv'
-    co2Df = pd.read_csv(vocPath, usecols = ['Time',voc], header = 0, nrows = 74208)
+    vocPath = 'Numerical Data/2013VOCData.csv'
+    voc2013Df = pd.read_csv(vocPath, usecols = ['Time',voc], header = 0, nrows = 74208)
     movieScreeningsPath = 'Numerical Data/screening_times.csv'
     movingScreeningsDf = pd.read_csv(movieScreeningsPath, usecols = ['scheduled','movie','filled %'])
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
@@ -402,20 +399,20 @@ def main():
     imOffThenScreeningDf = pd.read_csv(imOffThenPath)
     helpIShrunkTheTeacherPath = 'Numerical Data/Help, I Shrunk My Teacher.csv'
     helpIShrunkTheTeacherScreeningDf = pd.read_csv(helpIShrunkTheTeacherPath)
-    vocPath = 'Numerical Data/final_data_ppb.csv'
-    cinestar2015Co2Df = pd.read_csv(vocPath, usecols = ['Time', voc])
+    vocPath = 'Numerical Data/2015VOCData.csv'
+    voc2015Df = pd.read_csv(vocPath, usecols = ['Time', voc])
 
     #Standardize times within the VOC dataset
     #VOC timings with datetime object
-    for i in range(0,co2Df.shape[0]):
-        vocTime = co2Df.loc[i]['Time']
+    for i in range(0,voc2013Df.shape[0]):
+        vocTime = voc2013Df.loc[i]['Time']
         vocTime = vocTime[1:len(vocTime)-1]
         date = datetime.datetime.strptime(vocTime, "%m/%d/%Y %H:%M:%S")
-        co2Df.at[i,'Time'] = date.strftime('%d-%m-%Y %H:%M')
-    for i in range(0, cinestar2015Co2Df.shape[0]):
-        vocTime = cinestar2015Co2Df.loc[i]['Time']
+        voc2013Df.at[i,'Time'] = date.strftime('%d-%m-%Y %H:%M')
+    for i in range(0, voc2015Df.shape[0]):
+        vocTime = voc2015Df.loc[i]['Time']
         date = datetime.datetime.strptime(vocTime, "%d/%m/%Y %H:%M")
-        cinestar2015Co2Df.at[i,'Time'] = date.strftime('%d-%m-%Y %H:%M')
+        voc2015Df.at[i,'Time'] = date.strftime('%d-%m-%Y %H:%M')
 
     #Standardize times within the cinema movie schedule
     #2013
@@ -449,32 +446,32 @@ def main():
     movieScreeningList = list(movingScreeningsDf.loc[:]['movie'])
     movieList = list(movieRuntimeDf.loc[:]['movie'])
     filledPercentageList = list(movingScreeningsDf.loc[:]['filled %'])
-    vocTimeList = list(co2Df.loc[:]['Time'])
+    vocTimeList = list(voc2013Df.loc[:]['Time'])
 
     matchedMovieList = list()
     timeList = list() 
     vocScreenings = list()
     originalVOCFrames = list()
-    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, co2Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
+    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, voc2013Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
 
     #2015 Star Wars
     scheduledTimeList = list(starWarsScreeningDf.loc[:]['Start'])
-    vocTimeList = list(cinestar2015Co2Df.loc[:]['Time'])
+    vocTimeList = list(voc2015Df.loc[:]['Time'])
     filledPercentageList = list(starWarsScreeningDf.loc[:]['filled %'])
     movieScreeningList = list(starWarsScreeningDf.loc[:]['Film'])
-    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, cinestar2015Co2Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
+    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, voc2015Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
 
     #2015 I'm Off Then
     scheduledTimeList = list(imOffThenScreeningDf.loc[:]['Start'])
     filledPercentageList = list(imOffThenScreeningDf.loc[:]['filled %'])
     movieScreeningList = list(imOffThenScreeningDf.loc[:]['Film'])   
-    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, cinestar2015Co2Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
+    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, voc2015Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
 
     #2015 Help, I Shrunk the Teacher
     scheduledTimeList = list(helpIShrunkTheTeacherScreeningDf.loc[:]['Start'])
     filledPercentageList = list(helpIShrunkTheTeacherScreeningDf.loc[:]['filled %'])
     movieScreeningList = list(helpIShrunkTheTeacherScreeningDf.loc[:]['Film'])     
-    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, cinestar2015Co2Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
+    vocScreenings, matchedMovieList, timeList, originalVOCFrames = dataAlignment(scheduledTimeList, movieScreeningList, movieList, filledPercentageList, vocTimeList, matchedMovieList, timeList, vocScreenings, voc2015Df, preliminaryAlignmentTolerance, gradThreshold,filledPercentageConstraint,movieRuntimeDf,originalVOCFrames)
 
     #error adjustment
     adjustedScreenings = errorAdjustment(vocScreenings, timeList, matchedMovieList,originalVOCFrames,movieRuntimeDf)
@@ -485,8 +482,10 @@ def main():
     #save the normalised vocs
     #compile the matchedMovie, timeList and the screenings into a dictionary then save them
     if not(isWindowing):
-        normalisedScreeningsDict = {'screenings':normalisedScreenings, 'matchedMovies':matchedMovieList}
-        pickle.dump(normalisedScreeningsDict, open( "normalisedScreeningsDict.p", "wb" ) ) 
+        screeningsDict = {'screenings':normalisedScreenings, 'matchedMovies':matchedMovieList}
+        if save:
+            pickle.dump(screeningsDict, open( "normalisedScreeningsDict.p", "wb" ) ) 
+        return screeningsDict
 
     #applying windowing
     if isWindowing:
@@ -495,21 +494,24 @@ def main():
             #find year of movie and then to figure out what VOC dataset to give it
             year = list(screening['Time'])[0][6:10]
             if year == '2013' or year == '2014':
-                vocTimeList =list(co2Df['Time'])
-                windowList = windowing(screening, vocTimeList, co2Df)
+                vocTimeList =list(voc2013Df['Time'])
+                windowList = windowing(screening, vocTimeList, voc2013Df)
             elif year == '2015' or year == '2016':
-                vocTimeList = list(cinestar2015Co2Df['Time'])
-                windowList = windowing(screening, vocTimeList, cinestar2015Co2Df)
+                vocTimeList = list(voc2015Df['Time'])
+                windowList = windowing(screening, vocTimeList, voc2015Df)
             windowedNormalisedScreenings.append(windowList)
 
-        normalisedWindowedScreeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList, 'timeList':timeList}
-        pickle.dump(normalisedWindowedScreeningsDict, open( "normalisedWindowedScreeningsDict.p", "wb" ) ) 
+        screeningsDict = {'screenings':windowedNormalisedScreenings, 'matchedMovies':matchedMovieList, 'timeList':timeList}
+        if save:
+            pickle.dump(screeningsDict, open( "normalisedWindowedScreeningsDict.p", "wb" ) ) 
+        return screeningsDict
     
     #calculate delta voc dataset
     if isDelta:
         deltaScreenings = deltaVOCCalculation(normalisedScreenings, voc)
-        deltaScreeningsDict = {'screenings':deltaScreenings, 'matchedMovies':matchedMovieList,'timeList':timeList}
-        pickle.dump(deltaScreeningsDict, open( "deltaScreeningsDict.p", "wb" ) )
+        screeningsDict = {'screenings':deltaScreenings, 'matchedMovies':matchedMovieList,'timeList':timeList}
+        if save:
+            pickle.dump(screeningsDict, open( "deltaScreeningsDict.p", "wb" ) )
+        return screeningsDict
 
 
-main()
