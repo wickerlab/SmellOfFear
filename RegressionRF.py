@@ -95,6 +95,16 @@ def processSubtitles(subs, effectiveRuntime):
     
     return subSentimentDf
 
+def processASL(asl, effectiveRuntime):
+    
+    header = ['average shot length']
+    aslDf = pd.DataFrame(columns=header)
+    for index in range(0, effectiveRuntime): 
+        aslValue = asl[index]
+        aslDf.loc[index] = aslValue
+    
+    return aslDf
+
 def removeMovies(vocDict):
 
     #remove all screenings of im off then and help i shrunk the teacher as at the current time do not have the movies
@@ -148,15 +158,19 @@ def RegressionModel(vocDict, modelSave,deltaVOCs,windowedVOCs, voc):
             shade = pickle.load(open(featurePath, "rb" )) 
             featurePath = 'Pickle Objects/Subtitle Sentiment Pickle Objects/' + movie + '.p'
             sentiment = pickle.load(open(featurePath, "rb" )) 
-
+            featurePath = 'Pickle Objects/ASL Pickle Objects/' + movie + '.p'
+            asl = pickle.load(open(featurePath, "rb" )) 
+            
             runtime = movieRuntimeDf.loc[movieList.index(movie)]['effective runtime']
             colourDf = processVisuals(colour, runtime, True)
             shadeDf = processVisuals(shade, runtime, False)
             audioDf = processAudio(runtime, audio)
             sentimentDf = processSubtitles(sentiment,runtime)
-
-            inputDf = pd.concat([colourDf,shadeDf,audioDf,sentimentDf], axis = 1)
+            aslDf = processASL(asl, runtime)
+        
+            inputDf = pd.concat([colourDf,shadeDf,audioDf,sentimentDf,aslDf], axis = 1)
             movieFeatureDict[movie] = inputDf
+            
         except FileNotFoundError:
             pass
             
@@ -206,7 +220,7 @@ def RegressionModel(vocDict, modelSave,deltaVOCs,windowedVOCs, voc):
     #regression model
     
     print('Train Model')
-    regressor = RandomForestRegressor(n_estimators=10000, random_state=0)
+    regressor = RandomForestRegressor() #random forest will base parameters
     if not(windowedVOCs):
         regressor.fit(featuresTrain, labelsTrain.values.ravel())
     else:
