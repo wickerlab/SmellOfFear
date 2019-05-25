@@ -110,28 +110,31 @@ def main():
 
     #results df
     resultsHeader = ['RandomState','VOC','RMSE', 'MAE', 'R2']
-    resultsList = list()
     
-    vocList2015 = vocRounding(voc2015DfAll)
-    vocList2013 = vocRounding(voc2013DfAll)
-    voc2015DfAll.columns = vocList2015
-    voc2013DfAll.columns = vocList2013
+    voc2015Col = vocRounding(voc2015DfAll)
+    voc2013Col = vocRounding(voc2013DfAll)
+    voc2013Df = copy.deepcopy(voc2013DfAll)
+    voc2015Df = copy.deepcopy(voc2015DfAll)
+    voc2013Df.columns = voc2013Col
+    voc2015Df.columns = voc2015Col
 
-    for vocIndex in range(0,len(vocList2015)):
-        voc = voc2015DfAll.columns[vocIndex]
+    for vocIndex in range(125,150):
+        voc = voc2015Df.columns[vocIndex]
         if voc == 'Time':
             continue
         else:
             try:
-                indexMask = list(voc2013DfAll.columns).index(voc)
+                indexMask = list(voc2013Df.columns).index(voc)
             except ValueError: #the voc isnt within the 2013 VOC dataset
                 continue 
 
             print(voc)
+            resultsList = list()
+            
             for i in range(0,randomisationIterations):
                 #create normal voc screening list
-                vocDf2013 = voc2013DfAll.iloc[:,[indexMask]]
-                vocDf2015 = voc2015DfAll.iloc[:,[vocIndex]]
+                vocDf2013 = voc2013Df.iloc[:,[indexMask]]
+                vocDf2015 = voc2015Df.iloc[:,[vocIndex]]
 
                 screeningList = generateVOCScreenings(vocDf2013,vocDf2015, sliceDict['sliceDf'], sliceDict['matchedMovies'])
 
@@ -162,9 +165,7 @@ def main():
         #create results Df
         resultsDf = pd.DataFrame(resultsList,columns=resultsHeader)
         #write df to output file
-        resultsPath = voc + ".xlsx"
-        resultsDf.to_excel(resultsPath) 
-        resultsPath = voc + '.csv'
+        resultsPath = str(voc) + '.csv'
         resultsDf.to_csv(resultsPath, sep=',', encoding='utf-8')
 
 main()
