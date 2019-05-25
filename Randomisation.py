@@ -5,6 +5,7 @@ import random
 import copy
 from RegressionRF import RegressionModel
 import openpyxl
+from math import trunc
 
 def generateVOCScreenings(vocDf2013,vocDf2015, sliceDf, matchedMovies):
     screeningList = list()
@@ -13,12 +14,11 @@ def generateVOCScreenings(vocDf2013,vocDf2015, sliceDf, matchedMovies):
     vocDf = vocDf2013
     for index in range(0, len(matchedMovies)):
         
-        if startIndex == 371: #the 2015 df starts at this index
-            vocDf = vocDf2015
-        
         startIndex = sliceDf.loc[index]['start']
         endIndex = sliceDf.loc[index]['end']
-        screening = vocDf.loc[startIndex:endIndex,:]
+        if startIndex == 371: #the 2015 df starts at this index
+            vocDf = vocDf2015
+        screening = pd.DataFrame(vocDf.iloc[startIndex:endIndex+1,0])
         screeningList.append(screening)
         
         prevStartIndex = startIndex
@@ -37,33 +37,45 @@ def normalisation(vocScreenings, voc):
 
 #some vocs dont have the recorded screenings so remove then
 #then remove those same screenings from the randomisedScreeningList
-def emptyScreenings(screenings, randomisedScreenings, matchedMovies):
+def removeNaNScreenings(screenings, randomisedScreenings, matchedMovies):
     screeningList = list()
     randomScreeningList = list()
     movieList = list()
     for screeningIndex in range(0, len(screenings)):
-        if not(np.isnan(screenings[screeningIndex].values).all()):
+        if not(np.isnan(screenings[screeningIndex].values).any()):
             screeningList.append(screenings[screeningIndex])
             randomScreeningList.append(randomisedScreenings[screeningIndex])
             movieList.append(matchedMovies[screeningIndex])
     return screeningList,randomScreeningList,movieList
 
 #the randomisedScreenings have NaN instances within the 
-def replaceNaNInRandomisedScreenings(randomisedScreenings,vocList):
-    for screeningIndex in range(0, len(randomisedScreenings)):
-        if np.isnan(randomisedScreenings[screeningIndex].values).any():
-            #the screening has some NaN instances then replace with random values
-            for vocIndex in range(0, len(randomisedScreenings[screeningIndex].values)):
-                voc = randomisedScreenings[screeningIndex].values[vocIndex]
+def replaceNaNInRandomisedScreenings(randomisedScreeningList,entireVocList):
+    for screeningIndex in range(0, len(randomisedScreeningList)):
+        if (np.isnan(randomisedScreeningList[screeningIndex].values)).any():
+            for vocIndex in range(0, len(randomisedScreeningList[screeningIndex].values)):
+                voc = randomisedScreeningList[screeningIndex].values[vocIndex]
                 if np.isnan(voc[0]):
-                    randomIndex = random.randint(0,len(vocList+1)) #generate a random number
-                    while np.isnan(vocList[randomIndex]):
-                        #continue generating random numbers if NaN was returned 
-                        randomIndex = random.randint(0,len(vocList+1))
+                    randomIndex = random.randint(0,len(entireVocList)-1)
+                    while np.isnan(entireVocList[randomIndex]):
+                            #continue generating random numbers if NaN was returned 
+                            randomIndex = random.randint(0,len(entireVocList)-1)
+                    randomisedScreeningList[screeningIndex].values[vocIndex] = entireVocList[randomIndex]
+    return randomisedScreeningList
 
-                    randomisedScreenings[screeningIndex].values[vocIndex] = vocList[randomIndex]
-
-    return randomisedScreenings
+#column header matching issue between 2013 and 2015 
+#e.g. in 2015 column is m356.0711 vs in 2013 is it m356.0714
+#assumption being made is that they are the same column so round to 2dp and match
+def vocRounding(vocDf):
+    vocList = list()
+    for index in range(0, len(vocDf.columns)):
+        if vocDf.columns[index] == 'Time' or vocDf.columns[index] == 'ocs' or vocDf.columns[index] == 'co' or vocDf.columns[index] == 'CO2':
+            vocList.append(vocDf.columns[index])    
+        else:
+            #string slice to get the molar mass
+            voc = vocDf.columns[index]
+            mass = (trunc(float(voc[1:])*1000))/1000 #TRUNCATE TO 3DP
+            vocList.append(mass)
+    return vocList
 
 def main():
     
@@ -92,60 +104,68 @@ def main():
     sliceDict = pickle.load(open(slicePath, "rb" )) #contains df of co2 slice indices and matched movie list
     
     #user macros
-    voc = 'CO2'
     vocSave = False
     modelSave = False
+    randomisationIterations = 100
 
     #results df
     resultsHeader = ['RandomState','VOC','RMSE', 'MAE', 'R2']
-    resultsList = list()
     
-    for voc in voc2015DfAll.columns:
+    voc2015Col = vocRounding(voc2015DfAll)
+    voc2013Col = vocRounding(voc2013DfAll)
+    voc2013Df = copy.deepcopy(voc2013DfAll)
+    voc2015Df = copy.deepcopy(voc2015DfAll)
+    voc2013Df.columns = voc2013Col
+    voc2015Df.columns = voc2015Col
+
+    for vocIndex in range(125,150):
+        voc = voc2015Df.columns[vocIndex]
         if voc == 'Time':
             continue
-        elif voc == 'm18.0338':
-            break
         else:
             try:
-                indexMask = list(voc2013DfAll.columns).index(voc)
+                indexMask = list(voc2013Df.columns).index(voc)
             except ValueError: #the voc isnt within the 2013 VOC dataset
                 continue 
+
             print(voc)
-            #create normal voc screening list
-            vocDf2013 = voc2013DfAll.loc[:,[voc]]
-            vocDf2015 = voc2015DfAll.loc[:,[voc]]
-            screeningList = generateVOCScreenings(vocDf2013,vocDf2015, sliceDict['sliceDf'], sliceDict['matchedMovies'])
-            #create randomised voc list
-            voc2013RandomisedList = copy.deepcopy(list(vocDf2013[voc]))
-            voc2015RandomisedList = copy.deepcopy(list(vocDf2015[voc]))
-            random.shuffle(voc2013RandomisedList)
-            random.shuffle(voc2015RandomisedList)
-            vocDf2013Randomised = pd.DataFrame.from_dict({voc:voc2013RandomisedList})
-            vocDf2015Randomised = pd.DataFrame.from_dict({voc:voc2015RandomisedList})
-            randomisedScreeningList = generateVOCScreenings(vocDf2013Randomised, vocDf2015Randomised, sliceDict['sliceDf'], sliceDict['matchedMovies'])
-            #remove empty screenings from the list
-            matchedMovies = copy.deepcopy(sliceDict['matchedMovies'])
-            screeningList, randomisedScreeningList, matchedMovies = emptyScreenings(screeningList, randomisedScreeningList, matchedMovies)
-            #randomised screenings will have some NaN instances within then so replace those NaN instances with randomly selected VOC
-            entireVocList = np.append(vocDf2013.values, vocDf2015.values)
-            randomisedScreeningList = replaceNaNInRandomisedScreenings(randomisedScreeningList,entireVocList)
-            #perform normalisation
-            screeningList = normalisation(screeningList, voc)
-            randomisedScreeningList = normalisation(randomisedScreeningList, voc)
+            resultsList = list()
+            
+            for i in range(0,randomisationIterations):
+                #create normal voc screening list
+                vocDf2013 = voc2013Df.iloc[:,[indexMask]]
+                vocDf2015 = voc2015Df.iloc[:,[vocIndex]]
 
-            vocScreeningDict = {'screenings':screeningList, 'matchedMovies':matchedMovies}
-            vocRandomisedScreeningDict = {'screenings':randomisedScreeningList, 'matchedMovies':matchedMovies}
+                screeningList = generateVOCScreenings(vocDf2013,vocDf2015, sliceDict['sliceDf'], sliceDict['matchedMovies'])
 
-            RMSE,MAE,R2 = RegressionModel(vocScreeningDict, modelSave,False,False, voc)
-            resultsList.append([False, voc, RMSE,MAE,R2])
-            RMSE,MAE,R2 = RegressionModel(vocRandomisedScreeningDict, modelSave,False,False, voc)
-            resultsList.append([True, voc, RMSE,MAE,R2])
-            print()
+                matchedMovies = copy.deepcopy(sliceDict['matchedMovies'])
+                screeningList = normalisation(screeningList, voc)
+                #create randomised voc list
+                voc2013RandomisedList = copy.deepcopy(list(vocDf2013[voc]))
+                voc2015RandomisedList = copy.deepcopy(list(vocDf2015[voc]))
+                random.shuffle(voc2013RandomisedList)
+                random.shuffle(voc2015RandomisedList)
+                vocDf2013Randomised = pd.DataFrame.from_dict({voc:voc2013RandomisedList})
+                vocDf2015Randomised = pd.DataFrame.from_dict({voc:voc2015RandomisedList})
+                randomisedScreeningList = generateVOCScreenings(vocDf2013Randomised, vocDf2015Randomised, sliceDict['sliceDf'], sliceDict['matchedMovies'])
+                screeningList, randomisedScreeningList, matchedMovies = removeNaNScreenings(screeningList, randomisedScreeningList, matchedMovies)
+                entireVocList = np.append(vocDf2013.values, vocDf2015.values)
+                randomisedScreeningList = replaceNaNInRandomisedScreenings(randomisedScreeningList,entireVocList)
+                randomisedScreeningList = normalisation(randomisedScreeningList, voc)     
 
-    #create results Df
-    resultsDf = pd.DataFrame(resultsList,columns=resultsHeader)
-    #write df to output file
-    resultsDf.to_excel("results.xlsx") 
-    resultsDf.to_csv('results.csv', sep=',', encoding='utf-8')
+                vocScreeningDict = {'screenings':screeningList, 'matchedMovies':matchedMovies}
+                vocRandomisedScreeningDict = {'screenings':randomisedScreeningList, 'matchedMovies':matchedMovies}
+
+
+                RMSE,MAE,R2 = RegressionModel(vocScreeningDict, modelSave,False,False, voc)
+                resultsList.append([False, voc, RMSE,MAE,R2])
+                RMSE,MAE,R2 = RegressionModel(vocRandomisedScreeningDict, modelSave,False,False, voc)
+                resultsList.append([True, voc, RMSE,MAE,R2])
+
+        #create results Df
+        resultsDf = pd.DataFrame(resultsList,columns=resultsHeader)
+        #write df to output file
+        resultsPath = str(voc) + '.csv'
+        resultsDf.to_csv(resultsPath, sep=',', encoding='utf-8')
 
 main()

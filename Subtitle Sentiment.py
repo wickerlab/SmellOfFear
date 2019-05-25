@@ -73,7 +73,9 @@ def divideSubsIntoSegments(lines, runtime):
             if startTime != None:
                 if startTime >= referenceStartTime and startTime <= referenceEndTime:
                     subtitleSegment.append(line)   
-
+                    
+    #append final segment to interval list
+    subtitleIntervals.append(subtitleSegment)
     return subtitleIntervals 
 
 #remove any uncessary lines and unecessary characters within dialog lines
@@ -121,7 +123,7 @@ def main():
     for movie in movieList:
 
         if movie != 'Buddy':
-            subPath = 'Features//Subtitle SRT//' + movie + '.srt'
+            subPath = 'Features//Subtitles SRT//' + movie + '.srt'
             subs = open(subPath, mode = 'r', encoding='utf-8-sig')
             subs = subs.readlines() #contains each line within the document
             movieIndex = movieList.index(movie)
@@ -131,6 +133,15 @@ def main():
             #because buddy was in german it had to be translated first
             buddySubtitlePath = 'Pickle Objects/buddyEngTranslated.p'
             subtitleList = pickle.load(open(buddySubtitlePath, "rb" ))
+            movieIndex = movieList.index(movie)
+        
+        #movie padding or movie removal
+        if movieRuntimeDf['effective runtime'][movieIndex] != len(subtitleList):
+            if movieRuntimeDf['effective runtime'][movieIndex] < len(subtitleList):
+                subtitleList = subtitleList[:movieRuntimeDf['effective runtime'][movieIndex]]
+            else:
+                while movieRuntimeDf['effective runtime'][movieIndex] != len(subtitleList):
+                    subtitleList.append([])
 
 
         #For movies with english subtitle scripts
