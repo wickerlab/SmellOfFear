@@ -35,36 +35,22 @@ def normalisation(vocScreenings, voc):
         normalisedVOCList.append(normalisedScreening)
     return normalisedVOCList
 
-#some vocs dont have the recorded screenings so remove then
-#then remove those same screenings from the randomisedScreeningList
+#some vocs have NaN measurements during the decided screening times. Ignore these screenings
+#also remove empty screenings
 def removeNaNScreenings(screenings, randomisedScreenings, matchedMovies):
     screeningList = list()
     randomScreeningList = list()
     movieList = list()
     for screeningIndex in range(0, len(screenings)):
-        if not(np.isnan(screenings[screeningIndex].values).any()):
+        if not(np.isnan(screenings[screeningIndex].values).any()) and len(screenings[screeningIndex].values) != 0:
             screeningList.append(screenings[screeningIndex])
             randomScreeningList.append(randomisedScreenings[screeningIndex])
             movieList.append(matchedMovies[screeningIndex])
     return screeningList,randomScreeningList,movieList
 
-#the randomisedScreenings have NaN instances within the 
-def replaceNaNInRandomisedScreenings(randomisedScreeningList,entireVocList):
-    for screeningIndex in range(0, len(randomisedScreeningList)):
-        if (np.isnan(randomisedScreeningList[screeningIndex].values)).any():
-            for vocIndex in range(0, len(randomisedScreeningList[screeningIndex].values)):
-                voc = randomisedScreeningList[screeningIndex].values[vocIndex]
-                if np.isnan(voc[0]):
-                    randomIndex = random.randint(0,len(entireVocList)-1)
-                    while np.isnan(entireVocList[randomIndex]):
-                            #continue generating random numbers if NaN was returned 
-                            randomIndex = random.randint(0,len(entireVocList)-1)
-                    randomisedScreeningList[screeningIndex].values[vocIndex] = entireVocList[randomIndex]
-    return randomisedScreeningList
+
 
 #column header matching issue between 2013 and 2015 
-#e.g. in 2015 column is m356.0711 vs in 2013 is it m356.0714
-#assumption being made is that they are the same column so round to 2dp and match
 def vocRounding(vocDf):
     vocList = list()
     for index in range(0, len(vocDf.columns)):
@@ -76,6 +62,21 @@ def vocRounding(vocDf):
             mass = (trunc(float(voc[1:])*1000))/1000 #TRUNCATE TO 3DP
             vocList.append(mass)
     return vocList
+
+#generate randomised screenings
+def createRandomisedVOCScreenings(vocRandomised, runtimeList, movieList ,matchedMovies):
+    startIndex = 0
+    screeningList = list()
+    for movie in matchedMovies:
+        try:
+            runtime = runtimeList[movieList.index(movie)]
+        except ValueError:
+            continue
+        endIndex = startIndex + runtime
+        screening = vocRandomised[startIndex:endIndex]
+        screeningList.append(screening)
+        startIndex = endIndex
+    return screeningList
 
 def main():
     
@@ -134,28 +135,28 @@ def main():
             for i in range(0,randomisationIterations):
                 #create normal voc screening list
                 vocDf2013 = voc2013Df.iloc[:,[indexMask]]
-                vocDf2015 = voc2015Df.iloc[:,[vocIndex]]
+                vocDf2015 = voc2015Df.iloc[:,[vocIndex]]   
 
+                #generate screenings
                 screeningList = generateVOCScreenings(vocDf2013,vocDf2015, sliceDict['sliceDf'], sliceDict['matchedMovies'])
-
                 matchedMovies = copy.deepcopy(sliceDict['matchedMovies'])
-                screeningList = normalisation(screeningList, voc)
-                #create randomised voc list
-                voc2013RandomisedList = copy.deepcopy(list(vocDf2013[voc]))
-                voc2015RandomisedList = copy.deepcopy(list(vocDf2015[voc]))
-                random.shuffle(voc2013RandomisedList)
-                random.shuffle(voc2015RandomisedList)
-                vocDf2013Randomised = pd.DataFrame.from_dict({voc:voc2013RandomisedList})
-                vocDf2015Randomised = pd.DataFrame.from_dict({voc:voc2015RandomisedList})
-                randomisedScreeningList = generateVOCScreenings(vocDf2013Randomised, vocDf2015Randomised, sliceDict['sliceDf'], sliceDict['matchedMovies'])
+                #use logical vectors to remove all NaNs and create randomised voc lists
+                voc2013RandomisedList= vocDf2013.values[np.logical_not(np.isnan(vocDf2013.values))]
+                voc2015RandomisedList = vocDf2015.values[np.logical_not(np.isnan(vocDf2015.values))]
+                vocRandomised = np.append(voc2013RandomisedList,voc2015RandomisedList, axis=0)
+                random.shuffle(vocRandomised)
+                #generate randomised screenings
+                randomisedScreenings = createRandomisedVOCScreenings(vocRandomised, list(movieRuntimeDf['effective runtime']), list(movieRuntimeDf['movie']) ,matchedMovies)
+                randomisedScreeningList = list()
+                list(map(lambda screening : randomisedScreeningList.append(pd.DataFrame.from_dict({voc:screening})), randomisedScreenings))
+                #remove normal screenings with NaN values in the screenings
                 screeningList, randomisedScreeningList, matchedMovies = removeNaNScreenings(screeningList, randomisedScreeningList, matchedMovies)
-                entireVocList = np.append(vocDf2013.values, vocDf2015.values)
-                randomisedScreeningList = replaceNaNInRandomisedScreenings(randomisedScreeningList,entireVocList)
-                randomisedScreeningList = normalisation(randomisedScreeningList, voc)     
-
+                #normalise both screenings 
+                screeningList = normalisation(screeningList, voc)
+                randomisedScreeningList = normalisation(randomisedScreeningList, voc)
+                #create randomised and unrandomised list
                 vocScreeningDict = {'screenings':screeningList, 'matchedMovies':matchedMovies}
                 vocRandomisedScreeningDict = {'screenings':randomisedScreeningList, 'matchedMovies':matchedMovies}
-
 
                 RMSE,MAE,R2 = RegressionModel(vocScreeningDict, modelSave,False,False, voc)
                 resultsList.append([False, voc, RMSE,MAE,R2])
