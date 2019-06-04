@@ -1,8 +1,8 @@
 library(ggplot2)
+library(gtools)
 
-#get list of file names
-filenames <- list.files(pattern=".csv")
-
+#get list of file names and sort the list of filenames into the desired order
+filenames <- mixedsort(list.files(pattern=".csv"))
 
 #create dataframes
 summaryDf <- data.frame(1,1,1,1,1)
@@ -48,27 +48,24 @@ summaryDf <- summaryDf[2:nrow(summaryDf),]
 #convert voc to factor
 summaryDf$voc = as.factor(summaryDf$voc)
 
-#plot randomised mean and sd
-pRandomised <- ggplot() +
-  geom_point(data=summaryDf, aes(summaryDf$voc, summaryDf$`Randomised Mean Error`)) +
+#plot mean and sd
+p <- ggplot() +
+  geom_point(data=summaryDf, aes(summaryDf$voc, summaryDf$`Randomised Mean Error`), colour='green') +
   geom_errorbar(
     data=summaryDf, 
     aes(summaryDf$voc, summaryDf$`Randomised Mean Error`, ymin=summaryDf$`Randomised Mean Error`-summaryDf$`Randomised Error SD`, ymax=summaryDf$`Randomised Mean Error`+summaryDf$`Randomised Error SD`),
     colour='red',
     width = 0.4
-  )
-pRandomised + xlab("VOC") + ylab("Randomised Mean Error") + ggtitle("Randomised Error")
-
-#plot unrandomised mean and sd 
-pUnrandomised <- ggplot() +
-  geom_point(data=summaryDf, aes(summaryDf$voc, summaryDf$`Unrandomised Mean Error`)) +
+  ) + 
+  geom_point(data=summaryDf, aes(summaryDf$voc, summaryDf$`Unrandomised Mean Error`), colour='blue') +
   geom_errorbar(
     data=summaryDf, 
     aes(summaryDf$voc, summaryDf$`Unrandomised Mean Error`, ymin=summaryDf$`Unrandomised Mean Error`-summaryDf$`Unrandomised Error SD`, ymax=summaryDf$`Unrandomised Mean Error`+summaryDf$`Unrandomised Error SD`),
     colour='red',
     width = 0.4
   )
-pUnrandomised + xlab("VOC") + ylab("Unrandomised Mean Error") + ggtitle("Unrandomised Error")
+  
+p + xlab("VOC") + ylab("RMSE") + ggtitle("Randomised and Unrandomised Error")
 
 
         
