@@ -2,7 +2,7 @@ library(ggplot2)
 library(gtools)
 
 #get list of file names and sort the list of filenames into the desired order
-filenames <- mixedsort(list.files(pattern=".csv"))
+filenames <- list.files(pattern=".csv")
 
 #create dataframes
 summaryDf <- data.frame(1,1,1,1,1)
@@ -16,6 +16,7 @@ for (filename in filenames){
   unrandomisedRMSE <- vocData[seq(from=1, to=199, by=2),3]
   randomisedRMSE <- vocData[seq(from=2, to=200, by=2),3]
   voc <- as.character(vocData[1,'VOC'])
+ 
   
   #CALCULATE SUMMARY STATS
   randomisedErrorMean <- mean(randomisedRMSE)
