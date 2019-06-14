@@ -35,6 +35,17 @@ def normalisation(vocScreenings, voc):
         normalisedVOCList.append(normalisedScreening)
     return normalisedVOCList
 
+def normalisationStandardScaler(vocScreenings, voc):
+    normalisedVOCList = list()
+    for screening in vocScreenings:
+        scaler = StandardScaler()
+        scaler.transform(screening)
+        normalisedVOCFrame = normalisedVOCFrame.values/max(screening.values)
+        normalisedVOCFrame = normalisedVOCFrame.flatten()
+        normalisedScreening= pd.DataFrame.from_dict({voc:normalisedVOCFrame})
+        normalisedVOCList.append(normalisedScreening)
+    return normalisedVOCList    
+
 #some vocs have NaN measurements during the decided screening times. Ignore these screenings
 #also remove empty screenings
 def removeNaNScreenings(screenings, randomisedScreenings, matchedMovies):
@@ -119,7 +130,7 @@ def main():
     voc2013Df.columns = voc2013Col
     voc2015Df.columns = voc2015Col
 
-    for vocIndex in range(125,150):
+    for vocIndex in range(125,150): #allows to run seperate vocs on seperate cpu cores
         voc = voc2015Df.columns[vocIndex]
         if voc == 'Time':
             continue
@@ -158,9 +169,9 @@ def main():
                 vocScreeningDict = {'screenings':screeningList, 'matchedMovies':matchedMovies}
                 vocRandomisedScreeningDict = {'screenings':randomisedScreeningList, 'matchedMovies':matchedMovies}
 
-                RMSE,MAE,R2 = RegressionModel(vocScreeningDict, modelSave,False,False, voc)
+                RMSE,MAE,R2 = RegressionModel(vocScreeningDict, voc)
                 resultsList.append([False, voc, RMSE,MAE,R2])
-                RMSE,MAE,R2 = RegressionModel(vocRandomisedScreeningDict, modelSave,False,False, voc)
+                RMSE,MAE,R2 = RegressionModel(vocRandomisedScreeningDict, voc)
                 resultsList.append([True, voc, RMSE,MAE,R2])
 
         #create results Df

@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn import metrics
 import copy
 from sklearn.externals import joblib
+import random
 
 import DataPipeline
 
@@ -123,23 +124,45 @@ def removeMovies(vocDict):
     
     return vocDict
 
-def calculateDeltaFilmFeatures(movieFeatureDf, featureHeader):
-    deltaFeatureDf = pd.DataFrame(columns=featureHeader)
-    for rowIndex in range(0,movieFeatureDf.shape[0]-1):
-        tempDf = pd.concat([movieFeatureDf.loc[rowIndex],movieFeatureDf.loc[rowIndex+1]]).values
-        deltaFeatureDf.loc[rowIndex]= tempDf
-    return deltaFeatureDf
+def createTrainingAndTestSet(vocDict):
 
+    #80:20 train:test, thus randomly allocate 80% of screenings to test and 20% to test
+    numberOfScreenings = len(vocDict['screenings'])
+    testScreeningList = list()
+    testMovieList = list()
+    
+    #create test set
+    for screeningNumber in range(0,round(0.2*numberOfScreenings)):
+        randomIndex = random.randint(0, len(vocDict['screenings'])-1)
+        screening = vocDict['screenings'].pop(randomIndex)
+        testScreeningList.append(screening)
+        matchedMovie = vocDict['matchedMovies'].pop(randomIndex)
+        testMovieList.append(matchedMovie)
+    
+    #create training and test dict
+    testingDict = {'screenings':testScreeningList,'matchedMovies':testMovieList}
+    trainingDict = {'screenings':vocDict['screenings'],'matchedMovies':vocDict['matchedMovies']}
+    
+    return testingDict,trainingDict
 
-def RegressionModel(vocDict, modelSave,deltaVOCs,windowedVOCs, voc):
+def createInputOutputDf(vocDict, movieFeatureDict, voc):
+    featureDf = pd.DataFrame([]) #film feature dataframe
+    labelArray = np.array([])
+    for i in range(0, len(vocDict['screenings'])): 
+        matchedMovie = vocDict['matchedMovies'][i]
+        featureDf = pd.concat([featureDf, movieFeatureDict[matchedMovie]])
+        screening = vocDict['screenings'][i][voc]
+        labelArray = np.append(labelArray, screening.values)
+    labelDf = pd.DataFrame(labelArray) #voc dataframe
+    labelDf.columns = ['VOC']
+    return featureDf, labelDf
+
+def RegressionModel(vocDict, voc):
 
     #overall feature and labels df
     featureDf = pd.DataFrame([]) #film feature dataframe
     labelDf = pd.DataFrame([]) #voc dataframe
     
-    #user macros
-    lengthOfWindow = 10
-
     #import movie runtimes
     movieRuntimesPath = 'Numerical Data/movie_runtimes.csv'
     movieRuntimeDf = pd.read_csv(movieRuntimesPath, usecols = ['movie', 'runtime (mins)', 'effective runtime'])
@@ -161,7 +184,7 @@ def RegressionModel(vocDict, modelSave,deltaVOCs,windowedVOCs, voc):
             featurePath = 'Pickle Objects/ASL Pickle Objects/' + movie + '.p'
             asl = pickle.load(open(featurePath, "rb" )) 
             
-            runtime = movieRuntimeDf.loc[movieList.index(movie)]['effective runtime']
+            runtime = int(movieRuntimeDf.loc[movieList.index(movie)]['effective runtime'])
             colourDf = processVisuals(colour, runtime, True)
             shadeDf = processVisuals(shade, runtime, False)
             audioDf = processAudio(runtime, audio)
@@ -178,54 +201,17 @@ def RegressionModel(vocDict, modelSave,deltaVOCs,windowedVOCs, voc):
     
     #remove all screenings of im off then and help i shrunk the teacher as at the current time do not have the movies
     vocDict = removeMovies(vocDict)
-    
-    #create label and feature df
-
-    for i in range(0, len(vocDict['screenings'])): 
-
-        matchedMovie = vocDict['matchedMovies'][i]
-
-        if not(deltaVOCs):
-            featureDf = pd.concat([featureDf, movieFeatureDict[matchedMovie]])
-        else:
-            featureHeader = list(movieFeatureDict[matchedMovie].columns) + list(movieFeatureDict[matchedMovie].columns)
-            deltaDf = calculateDeltaFilmFeatures(movieFeatureDict[matchedMovie],featureHeader)
-            featureDf = pd.concat([featureDf, deltaDf])
-
-        if not(windowedVOCs):
-            screening = vocDict['screenings'][i]
-            labelDf = pd.concat([labelDf, screening[voc]])
-        else:
-            screening = vocDict['screenings'][i]
-            #using windowedVOCsed VOCs
-            header = ['VOC' + str(x) for x in range(1,lengthOfWindow+1)]
-            vocWindowDf = pd.DataFrame(columns = header)
-            for index in range(0, len(screening)):
-                vocWindow = screening[index][voc].values
-                vocWindowDf.loc[index] = vocWindow 
-            labelDf = pd.concat([labelDf, vocWindowDf])
-
-    #relabel column title 
-    if not(windowedVOCs):
-        labelDf.columns = ['VOC']
-
-    print('Finished Creating Feature & Label Dataframes')
-     
-    #train test split
-    #create training and test datasets
     print('Train Test Split')
-    featuresTrain, featuresTest, labelsTrain, labelsTest = train_test_split(featureDf, labelDf, test_size= 0.20) #80 20 train test split
-   
+    testingDict,trainingDict = createTrainingAndTestSet(vocDict)
+    print('Creating Feature & Label Dataframes')
+    featuresTrain, labelsTrain = createInputOutputDf(trainingDict,movieFeatureDict, voc)
+    featuresTest, labelsTest = createInputOutputDf(testingDict,movieFeatureDict, voc)
 
     #regression model
-    
     print('Train Model')
     regressor = RandomForestRegressor() #random forest will base parameters
-    if not(windowedVOCs):
-        regressor.fit(featuresTrain, labelsTrain.values.ravel())
-    else:
-        regressor.fit(featuresTrain, labelsTrain)
-        
+    regressor.fit(featuresTrain, labelsTrain.values.ravel())
+
     print('Test Model')
     labelsPred = regressor.predict(featuresTest)
     
@@ -237,9 +223,5 @@ def RegressionModel(vocDict, modelSave,deltaVOCs,windowedVOCs, voc):
     print('Absolute Mean Error: ', MAE)
     print('R Squared: ', R2)
     
-    #Save the model
-    if modelSave:
-        joblib.dump(regressor, 'NoWindowModel.pkl')
-        
     return RMSE,MAE,R2
     
