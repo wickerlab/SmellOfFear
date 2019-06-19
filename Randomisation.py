@@ -130,7 +130,7 @@ def main():
     voc2013Df.columns = voc2013Col
     voc2015Df.columns = voc2015Col
 
-    for vocIndex in range(125,150): #allows to run seperate vocs on seperate cpu cores
+    for vocIndex in range(75,100): #allows to run seperate vocs on seperate cpu cores
         voc = voc2015Df.columns[vocIndex]
         if voc == 'Time':
             continue
@@ -165,6 +165,8 @@ def main():
                 #normalise both screenings 
                 screeningList = normalisation(screeningList, voc)
                 randomisedScreeningList = normalisation(randomisedScreeningList, voc)
+                #remove any leftover NaN screenings
+                screeningList, randomisedScreeningList, matchedMovies = removeNaNScreenings(screeningList, randomisedScreeningList, matchedMovies)
                 #create randomised and unrandomised list
                 vocScreeningDict = {'screenings':screeningList, 'matchedMovies':matchedMovies}
                 vocRandomisedScreeningDict = {'screenings':randomisedScreeningList, 'matchedMovies':matchedMovies}
