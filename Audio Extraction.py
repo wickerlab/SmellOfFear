@@ -10,15 +10,23 @@ movieRuntimeDf = pd.read_csv(movieRuntimePath, usecols = ['movie', 'runtime (min
 #create a list of movies
 movieList = list(movieRuntimeDf['movie'])
 
+movieList = [movieList[-1]] 
+
 sr = 22050 #sampling rate
 
 for movie in movieList:
 
     index = movieList.index(movie)
     #load audio
-    basePath = 'Pickle Objects//Raw Audio File Pickle Objects//'
+    basePath = '/home/sof/Notebooks/Pickle Objects/Raw Audio File Pickle Objects/' #enter path to audio pickle objects
     moviePath = basePath + movie + '.p'
-    y = pickle.load(open(moviePath,"rb")) 
+    try:
+        y = pickle.load(open(moviePath,"rb")) 
+        print('FOUND: ', movie)
+    except FileNotFoundError:
+        #movie files that we do not have
+        print(movie)
+        continue
 
     #split the audio into 30s intervals
     runtime = movieRuntimeDf.loc[index]['runtime (mins)'] 
@@ -86,7 +94,7 @@ for movie in movieList:
     
     print(movie + ' finished processing')
 
-    audioFeaturePath = 'Pickle Objects//' + movie + 'AudioFeatures.p'
+    audioFeaturePath = 'Pickle Objects//Audio Feature Pickle Objects//' + movie + '.p'
     pickle.dump(featureDict, open(audioFeaturePath, "wb" ))
     
     print(movie + ' saved as pickle object')

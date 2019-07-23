@@ -35,42 +35,49 @@ def plot_colors2(hist, centroids):
 
 #find dominant colour through K-means clustering
 
-def dominantColourOrShadeEvaluation(movieFrames):
-    dominantList = list()
-    for img in movieFrames:
-        clt = KMeans(n_clusters=1)
-        clt.fit(img)
-        hist = find_histogram(clt)
-        bar = plot_colors2(hist, clt.cluster_centers_)
-        dominantList.append(list(bar[0][0]))
-    return dominantList
+def dominantColourOrShadeEvaluation(img):
+
+    clt = KMeans(n_clusters=1)
+    clt.fit(img)
+    hist = find_histogram(clt)
+    bar = plot_colors2(hist, clt.cluster_centers_)
+    dominantObject = list(bar[0][0])
+    return dominantObject
 
 
 def main():
 
     #import movie list
     movieRuntimesPath = 'Numerical Data//movie_runtimes.csv'
-    movieRuntimeDf = pd.read_csv(movieRuntimesPath, usecols = ['movie', 'runtime (mins)', 'effective runtime'], nrows = 9)
+    movieRuntimeDf = pd.read_csv(movieRuntimesPath, usecols = ['movie', 'runtime (mins)', 'effective runtime'], header=0)
     movieList = list(movieRuntimeDf['movie'])
 
-    #note: frame sampling occurred at 1 frame every 3 seconds
+    #note: frame sampling at 1fps
     #Read in images and perform kmeans for dominant colour/shade clustering
 
     movieFrameNumbers = dict()
-    movieFrameNumbers['Hobbit 2'] = 3226
-    movieFrameNumbers['Buddy'] = 1817
-    movieFrameNumbers['Machete Kills'] = 2161
-    movieFrameNumbers['Walter Mitty'] = 2292
-    movieFrameNumbers['Paranormal Activity'] = 2022
-    movieFrameNumbers['The Hunger Games-Catching Fire'] = 2925
-    movieFrameNumbers['Star Wars-The Force Awakens'] = 2762
+    movieFrameNumbers['Hobbit 2'] = 9678
+    movieFrameNumbers['Buddy'] = 5450
+    movieFrameNumbers['Machete Kills'] = 6481
+    movieFrameNumbers['Walter Mitty'] = 6875
+    movieFrameNumbers['Paranormal Activity'] = 6065
+    movieFrameNumbers['The Hunger Games-Catching Fire'] = 8775
+    movieFrameNumbers['Star Wars-The Force Awakens'] = 8287
+    movieFrameNumbers["Help, I Shrunk My Teacher"] = 5825
+    movieFrameNumbers["I'm Off Then"] = 5331
+    movieFrameNumbers["Cloudy with a Chance of Meatballs 2"] = 5690
+    movieFrameNumbers['Carrie'] = 6056
+    movieFrameNumbers['Walking with Dinosaurs'] = 5243
+    movieFrameNumbers['Suck Me Shakespeer'] = 6747
 
     for movie in movieList:
-        movieFrameList = list()
-        movieGrayFrameList = list()
-        for j in range(1, movieFrameNumbers[movie]+1): #movie frame numbers start at 1 
+        print('Processing ', movie)
+        colourList = list()
+        lightingList = list()
+        for j in range(1, movieFrameNumbers[movie]): #movie frame numbers start at 1 
             number = '{:04d}'.format(j)
-            inputPath = 'Features//MovieFrames//' + movie + "//" + movie + "_" + str(number) + '.jpg'
+            print('Frame Number ', number)
+            inputPath = "/home/sof/Notebooks/disk/Features/Movie Frames/" + movie + "/" + movie + "_" + str(number) + '.jpg'
             img = cv2.imread(inputPath)
             img = np.array(img, dtype=np.uint8)
             #convert BGR image to RGB
@@ -82,23 +89,20 @@ def main():
             img = img.reshape((img.shape[0] * img.shape[1],3)) 
             #reshape array from (x,y,1) to (x*y)    
             grayImg = grayImg.reshape((grayImg.shape[0] * grayImg.shape[1],1)) 
-            #append to array
-            movieFrameList.append(img)
-            movieGrayFrameList.append(grayImg)
-        
-        
-        print(movie + ' dominant colour processing')
-        #movie frames both grey and colour loaded
-        dominantColourList = dominantColourOrShadeEvaluation(movieFrameList)
-        print(movie + ' dominant shade processing')
-        dominantShadeList = dominantColourOrShadeEvaluation(movieGrayFrameList)
-        
+
+            #movie frames both grey and colour loaded
+            dominantColour = dominantColourOrShadeEvaluation(img)
+            dominantShade = dominantColourOrShadeEvaluation(grayImg)
+            colourList.append(dominantColour)
+            lightingList.append(dominantShade)
+
         print(movie + ' save pickle object')
         dominantColourFilename = 'Pickle Objects//Colour Pickle Objects//' + movie + '.p'
         dominantShadeFilename = 'Pickle Objects//Shade Pickle Objects//' + movie + '.p' 
-        pickle.dump(dominantColourList, open(dominantColourFilename, 'wb'))
-        pickle.dump(dominantShadeList, open(dominantShadeFilename, 'wb'))
-    
+        pickle.dump(colourList, open(dominantColourFilename, 'wb'))
+        pickle.dump(lightingList, open(dominantShadeFilename, 'wb'))
+
+
 
 main()
 
