@@ -225,18 +225,17 @@ def categoricalValues(percentageChange):
 
 def ClassificationModel(featuresTrain,labelsTrain, labelsTest,featuresTest):
     print('Train Model')
-    clf = RandomForestClassifier()
+    clf = RandomForestClassifier(n_estimators=100)
     clf.fit(featuresTrain, labelsTrain)  
     
     print('Test Model')
     predictedLabels = clf.predict(featuresTest)
     
     #compute accuracy and precision
-    precisionScore = precision_score(labelsTest, predictedLabels)
+    precisionScore = precision_score(labelsTest, predictedLabels, average='micro')
     accuracyScore = accuracy_score(labelsTest, predictedLabels)
     
     return precisionScore,accuracyScore
-
 def main():
     
     #overall feature and labels df
