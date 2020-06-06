@@ -91,8 +91,13 @@ def main():
                 trainingMovies = list(movieRuntimeDf['movie'])
                 testMovie = [movie]
                 trainingMovies.pop(trainingMovies.index(testMovie[0]))
-
-                trainingFeatures,testingFeatures = train_test_split(labels,features,matchedMovies,trainingMovies,testMovie)
+                
+                try:
+                    trainingFeatures,testingFeatures = train_test_split(labels,features,matchedMovies,trainingMovies,testMovie)
+                except:
+                    #no viable screenings
+                    print('No screenings: ' + voc)
+                    continue
 
                 #split labels and features
                 trainingLabels = trainingFeatures.iloc[:,-1]
@@ -119,6 +124,8 @@ def main():
 
                 #shuffle the labels in the training set and use the same test set
                 np.random.shuffle(trainingLabels)
+                trainingFeatures.drop(trainingFeatures.columns[-1], axis=1, inplace=True)
+                
                 #random
                 print('Train randomised model')
                 regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
