@@ -40,7 +40,11 @@ def train_test_split(labels,features,matchedMovies,trainingMovies,testMovie):
         infoDf.dropna(inplace=True)
         #scale the labels between 0 and 1
         sc = MinMaxScaler()
-        infoDf.iloc[:,-1] = sc.fit_transform(infoDf.iloc[:,-1].values.reshape(-1,1))
+        try:
+            infoDf.iloc[:,-1] = sc.fit_transform(infoDf.iloc[:,-1].values.reshape(-1,1))
+        except ValueError:
+            #screening is empty (all NaN)
+            continue
 
         if movie in testMovie:
             testDf = pd.concat([testDf,infoDf], ignore_index=True)
@@ -92,53 +96,48 @@ def main():
                 testMovie = [movie]
                 trainingMovies.pop(trainingMovies.index(testMovie[0]))
                 
-                try:
-                    trainingFeatures,testingFeatures = train_test_split(labels,features,matchedMovies,trainingMovies,testMovie)
-                except:
-                    #no viable screenings
-                    print('No screenings: ' + voc)
-                    continue
-
-                #split labels and features
-                trainingLabels = trainingFeatures.iloc[:,-1]
-                trainingFeatures.drop(trainingFeatures.columns[-1], axis=1, inplace=True)
-                testingLabels = testingFeatures.iloc[:,-1]
-                testingFeatures.drop(testingFeatures.columns[-1], axis=1, inplace=True)
-
-                #run experiment
-
-                #normal 
-                print('Train normal model')
-                regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
-                regressor.fit(trainingFeatures, trainingLabels.ravel())
-                #predict
-                predictions = regressor.predict(testingFeatures)
-                r2_score = metrics.r2_score(testingLabels, predictions)
-                rmse = np.sqrt(metrics.mean_squared_error(testingLabels,predictions))
-                #print and save
-                print("R2 score:", r2_score)
-                print("RMSE: ", rmse)
-                R2_score.append(r2_score)
-                RMSE_score.append(rmse)
-                testingMovies.append(movie)
-
-                #shuffle the labels in the training set and use the same test set
-                np.random.shuffle(trainingLabels)
-                trainingFeatures.drop(trainingFeatures.columns[-1], axis=1, inplace=True)
                 
-                #random
-                print('Train randomised model')
-                regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
-                regressor.fit(trainingFeatures, trainingLabels.ravel())
-                #predict
-                predictions = regressor.predict(testingFeatures)
-                r2_score = metrics.r2_score(testingLabels, predictions)
-                rmse = np.sqrt(metrics.mean_squared_error(testingLabels,predictions))
-                #print and save
-                print("Random R2 score:", r2_score)
-                print("Random RMSE: ", rmse)
-                Random_R2_score.append(r2_score)
-                Random_RMSE_score.append(rmse)
+                trainingFeatures,testingFeatures = train_test_split(labels,features,matchedMovies,trainingMovies,testMovie)
+             
+                if (trainingFeatures.shape[0] != 0 and testingFeatures.shape[0] != 0):
+                    trainingLabels = trainingFeatures.iloc[:,-1]
+                    trainingFeatures.drop(trainingFeatures.columns[-1], axis=1, inplace=True)
+                    testingLabels = testingFeatures.iloc[:,-1]
+                    testingFeatures.drop(testingFeatures.columns[-1], axis=1, inplace=True)
+
+                    #run experiment
+                    #normal 
+                    print('Train normal model')
+                    regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
+                    regressor.fit(trainingFeatures, trainingLabels.ravel())
+                    #predict
+                    predictions = regressor.predict(testingFeatures)
+                    r2_score = metrics.r2_score(testingLabels, predictions)
+                    rmse = np.sqrt(metrics.mean_squared_error(testingLabels,predictions))
+                    #print and save
+                    print("R2 score:", r2_score)
+                    print("RMSE: ", rmse)
+                    R2_score.append(r2_score)
+                    RMSE_score.append(rmse)
+                    testingMovies.append(movie)
+
+                    #shuffle the labels in the training set and use the same test set
+                    np.random.shuffle(trainingLabels)
+                    trainingFeatures.drop(trainingFeatures.columns[-1], axis=1, inplace=True)
+
+                    #random
+                    print('Train randomised model')
+                    regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
+                    regressor.fit(trainingFeatures, trainingLabels.ravel())
+                    #predict
+                    predictions = regressor.predict(testingFeatures)
+                    r2_score = metrics.r2_score(testingLabels, predictions)
+                    rmse = np.sqrt(metrics.mean_squared_error(testingLabels,predictions))
+                    #print and save
+                    print("Random R2 score:", r2_score)
+                    print("Random RMSE: ", rmse)
+                    Random_R2_score.append(r2_score)
+                    Random_RMSE_score.append(rmse)
 
 
         #create and output a dataframe 
