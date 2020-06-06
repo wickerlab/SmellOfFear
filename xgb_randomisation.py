@@ -66,7 +66,7 @@ def main():
     
     vocs,features,matchedMovies = loadFeaturesLabels(vocs_index,features_index)
     
-    for voc_index in range(0, 200):
+    for voc_index in range(200, 300):
     
         R2_score = list()
         RMSE_score = list()
@@ -80,7 +80,7 @@ def main():
         
         print(voc)
         
-        for iter_no in range(0, 10): 
+        for iter_no in range(0, 5): 
             
             print(iter_no)
 
@@ -103,7 +103,8 @@ def main():
                 #run experiment
 
                 #normal 
-                regressor = xgb.XGBRegressor(n_estimators=1000, n_jobs=-1)
+                print('Train normal model')
+                regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
                 regressor.fit(trainingFeatures, trainingLabels.ravel())
                 #predict
                 predictions = regressor.predict(testingFeatures)
@@ -119,7 +120,8 @@ def main():
                 #shuffle the labels in the training set and use the same test set
                 np.random.shuffle(trainingLabels)
                 #random
-                regressor = xgb.XGBRegressor(n_estimators=1000, n_jobs=-1)
+                print('Train randomised model')
+                regressor = xgb.XGBRegressor(n_estimators=100, n_jobs=-1)
                 regressor.fit(trainingFeatures, trainingLabels.ravel())
                 #predict
                 predictions = regressor.predict(testingFeatures)
