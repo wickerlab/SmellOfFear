@@ -3,4 +3,5 @@ In this study we analyse data from cinema audiences to find reliable patterns be
 
 To achieve this, we first extracted visual and auditory features from a movie and compared it to the crowd's breath using both regression and pattern mining techniques. Where possible, scene labels from the movies were also added to the datasets. Results show statistically significant relationships between the movie features and the crowd's breath. Additionally, clear changes in the breath data were detected and correlates to the content of a movie.
 
+This research was supervised by Dr Joerg Simon Wicker from the University of Auckland. 
 This paper is currently in submission proceedings. 
